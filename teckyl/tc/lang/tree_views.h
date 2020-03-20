@@ -17,6 +17,7 @@
 #define TECKYL_TC_LANG_TREE_VIEWS_H_
 
 #include "teckyl/tc/lang/error_report.h"
+#include "teckyl/tc/lang/ranges.h"
 #include "teckyl/tc/lang/tree.h"
 
 #include <sstream>
@@ -111,6 +112,11 @@ struct TreeView {
   operator TreeRef() const { return tree_; }
   TreeId id() const { return tree_->id(); }
 
+  std::shared_ptr<ranges::Expr>
+  toRangeExpr(const std::unordered_set<std::string> &rangeParams) const {
+    return tree_->toRangeExpr(rangeParams);
+  }
+  
 protected:
   TreeRef subtree(size_t i) const { return tree_->tree(i); }
   TreeRef tree_;
@@ -179,7 +185,7 @@ struct Ident : public TreeView {
   static TreeRef create(const SourceRange &range, const std::string &name) {
     return Compound::create(TK_IDENT, range, {String::create(name)});
   }
-
+  
 private:
   TreeRef name_;
 };

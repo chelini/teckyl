@@ -19,9 +19,11 @@
 #include <functional>
 #include <memory>
 #include <sstream>
+#include <unordered_set>
 #include <vector>
 
 #include "teckyl/tc/lang/lexer.h"
+#include "teckyl/tc/lang/ranges.h"
 #include <llvm/ADT/Twine.h>
 #include <llvm/Support/ErrorHandling.h>
 
@@ -100,6 +102,11 @@ struct Tree : std::enable_shared_from_this<Tree> {
   virtual ~Tree() {}
 
   TreeId id() { return id_; }
+
+  virtual std::shared_ptr<ranges::Expr>
+  toRangeExpr(const std::unordered_set<std::string> &rangeParams) const {
+    return std::shared_ptr<ranges::Expr>();
+  }
 };
 
 struct String : public Tree {
@@ -107,6 +114,14 @@ struct String : public Tree {
   virtual const std::string &stringValue() const override { return value_; }
   template <typename... Args> static TreeRef create(Args &&... args) {
     return std::make_shared<String>(std::forward<Args>(args)...);
+  }
+
+  std::shared_ptr<ranges::Expr>
+  toRangeExpr(const std::unordered_set<std::string> &rangeParams) const final {
+    if (rangeParams.count(stringValue()))
+      return std::make_shared<ranges::Parameter>(stringValue());
+    else
+      return std::make_shared<ranges::Variable>(stringValue());
   }
 
 private:
@@ -119,6 +134,14 @@ struct Number : public Tree {
   virtual const std::string &suffix() const { return suffix_; }
   template <typename... Args> static TreeRef create(Args &&... args) {
     return std::make_shared<Number>(std::forward<Args>(args)...);
+  }
+
+  std::shared_ptr<ranges::Expr>
+  toRangeExpr(const std::unordered_set<std::string> &rangeParams) const final {
+    ranges::SIZET v;
+    std::istringstream iss(numValue());
+    iss >> v;
+    return std::make_shared<ranges::Constant>(v);
   }
 
 private:
@@ -199,6 +222,42 @@ struct Compound : public Tree {
     return Compound::create(kind(), range(), std::move(trees_));
   }
   const SourceRange &range() const override { return range_; }
+
+  std::shared_ptr<ranges::Expr>
+  toRangeExpr(const std::unordered_set<std::string> &rangeParams) const final {
+    bool validBinOp = false;
+    ranges::ARITH op;
+
+    // no error checking is done, a tree that does
+    // not represent a (more or less) affine arithmetic
+    // expression will not be successfully converted
+    // to a 'ranges::Expr':
+    switch(kind()) {
+    case '+':
+      validBinOp = true;
+      op = ranges::PLUS;
+      break;
+    case '-':
+      validBinOp = true;
+      op = ranges::MINUS;
+      break;
+    case '*':
+      validBinOp = true;
+      op = ranges::TIMES;
+      break;
+    case TK_IDENT:
+    case TK_CONST:
+      return tree(0)->toRangeExpr(rangeParams);
+    }
+
+    if (validBinOp) {
+      auto left  = tree(0)->toRangeExpr(rangeParams);
+      auto right = tree(1)->toRangeExpr(rangeParams);
+      return std::make_shared<ranges::BinOp>(op, left, right);
+    } else {
+      return std::shared_ptr<ranges::Expr>();
+    }
+  }
 
 private:
   SourceRange range_;

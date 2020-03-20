@@ -4,6 +4,7 @@
 #include <set>
 
 #include "teckyl/tc/lang/parser.h"
+#include "teckyl/tc/lang/sema.h"
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/ErrorHandling.h>
 #include <mlir/Analysis/Verifier.h>
@@ -55,8 +56,12 @@ std::map<std::string, lang::Def> parse(const std::string &tc) {
 
 // Dumps the AST for a set of kernels to stderr
 void dumpAST(const std::map<std::string, lang::Def> &tcs) {
-  for (const auto &res : tcs)
-    std::cerr << res.second << std::endl;
+  lang::Sema sema;
+  
+  for (const auto &res : tcs) {
+    auto func = sema.checkFunction(res.second);
+    std::cerr << func << std::endl;
+  }
 }
 
 // Generates an MLIR representation for each TC kernel and dumps a
