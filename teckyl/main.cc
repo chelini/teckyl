@@ -40,8 +40,9 @@ std::string readFile(const std::string &filename) {
 
 // Parses a string with TCs and returns a map with one entry for each
 // kernel, composed of the kernel's name and its AST.
-std::map<std::string, lang::Def> parse(const std::string &tc) {
-  lang::Parser parser(tc);
+std::map<std::string, lang::Def> parse(const std::string &tc,
+                                       const std::string &filename) {
+  lang::Parser parser(tc, filename);
   std::map<std::string, lang::Def> parsed;
 
   while (parser.L.cur().kind != lang::TK_EOF) {
@@ -97,7 +98,7 @@ int main(int argc, char **argv) {
 
   std::string source = readFile(inputFilename);
 
-  tcs = parse(source);
+  tcs = parse(source, inputFilename);
 
 #ifdef COMPILE_WITH_EXCEPTIONS
   try {
