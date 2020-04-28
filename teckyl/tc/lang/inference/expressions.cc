@@ -14,7 +14,7 @@ static llvm::cl::opt<std::string>
     inputFilename(llvm::cl::Positional, llvm::cl::desc("<input file>"),
                   llvm::cl::init("-"), llvm::cl::value_desc("filename"));
 
-enum Action { None, Distribute, SignConvert, Normalize };
+enum Action { None, Distribute, SignConvert, Normalize, VarToParam, ParamToVar };
 
 static llvm::cl::opt<enum Action> trafoAction(
 "trafo", llvm::cl::desc("Select the desired transformation"),
@@ -25,7 +25,9 @@ llvm::cl::init(None),
      llvm::cl::values(clEnumValN(SignConvert, "sign-conv", "move signs as far into arguments "
 				                           "of multiplications as possible")),
      llvm::cl::values(clEnumValN(Normalize, "norm", "normalize expression (i.e. convert "
-				                    "into sum of monomials)")));
+				                    "into sum of monomials)")),
+     llvm::cl::values(clEnumValN(VarToParam, "var2param", "convert all variables into parameters")),
+     llvm::cl::values(clEnumValN(ParamToVar, "param2var", "convert all parameters into variables")));
 
 enum Assoc { Left, Right };
 
@@ -80,6 +82,28 @@ int main(int argc, char **argv) {
     result = trafo.run(expr);
     break;
   }
+  case VarToParam: {
+    auto subst = [](const std::string &name,
+		    const teckyl::ranges::ExprRef &self) -> teckyl::ranges::ExprRef {
+      return std::make_shared<teckyl::ranges::Parameter>(name);
+    };
+
+    auto trafo = teckyl::ranges::Substitution(subst);
+    result = trafo.run(expr);
+    break;
+  }
+  case ParamToVar: {
+    auto subst = [](const std::string &name,
+		    const teckyl::ranges::ExprRef &self) -> teckyl::ranges::ExprRef {
+      return std::make_shared<teckyl::ranges::Variable>(name);
+    };
+
+    auto trafo = teckyl::ranges::Substitution(teckyl::ranges::Substitution::identity,
+					      subst);
+    result = trafo.run(expr);
+    break;
+  }
+
   default:
     llvm_unreachable("Unknown action");
   }
